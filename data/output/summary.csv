@@ -1,0 +1,3 @@
+solver,alpha_star,AP_count,MP_count,pairs_selected,best_acc_m,time_s,iterations,p_s,tts_99_ms
+SA,0.25,4,5,7,2.7807293915144227,0.9329800605773926,7,1.0,1.2856149673461914
+QA,0.2578125,3,5,6,2.740016447807493,1.9298441410064697,7,1.0,0.02

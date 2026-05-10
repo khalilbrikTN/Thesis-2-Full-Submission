@@ -1,0 +1,65 @@
+\documentclass[12pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+% Custom commands
+\algrenewcommand\algorithmicrequire{\textbf{Input:}}
+\algrenewcommand\algorithmicensure{\textbf{Output:}}
+
+\begin{document}
+
+\begin{algorithm}
+\caption{Binary Search for Optimal $\alpha$}
+\begin{algorithmic}[1]
+
+\Require Redundancy matrix $\mathbf{R}$, Importance vector $\mathbf{I}$,
+         AP budget $n$, MP budget $m$, termination threshold $\varepsilon$
+\Ensure Optimal value $\alpha^*$, selected pairs $\mathbf{x}^*$
+
+\State $a \leftarrow 0.0$
+\State $b \leftarrow 1.0$
+\State $\mathbf{x}^* \leftarrow \text{None}$
+\State $\text{best\_acc} \leftarrow \infty$ \Comment{Lower is better (error in meters)}
+
+\While{$b - a \geq \varepsilon$}
+
+    \State $\alpha \leftarrow \dfrac{a + b}{2}$
+
+    \State $\tilde{\mathbf{x}} \leftarrow \tilde{Q}^*(\alpha)$
+    \Comment{Solve QUBO with current $\alpha$}
+
+    \State $\text{AP\_count} \leftarrow$ number of distinct AP nodes active in $\tilde{\mathbf{x}}$
+
+    \State $\text{MP\_count} \leftarrow$ number of distinct MP nodes active in $\tilde{\mathbf{x}}$
+
+    \If{$\text{AP\_count} \leq n$ \textbf{and} $\text{MP\_count} \leq m$}
+        \State $a \leftarrow \alpha$
+        \Comment{Feasible — budget drives direction, push lower bound up}
+
+        \State $\text{acc} \leftarrow \text{Localizer}(\tilde{\mathbf{x}})$
+        \Comment{KNN localization error (only evaluated when feasible)}
+
+        \If{$\text{acc} < \text{best\_acc}$}
+            \State $\mathbf{x}^* \leftarrow \tilde{\mathbf{x}}$
+            \Comment{Track best feasible solution separately}
+            \State $\text{best\_acc} \leftarrow \text{acc}$
+        \EndIf
+
+    \Else
+        \State $b \leftarrow \alpha$
+        \Comment{Over budget — push upper bound down}
+    \EndIf
+
+\EndWhile
+
+\State $\alpha^* \leftarrow a$ \Comment{Last feasible $\alpha$}
+
+\Return $\alpha^*,\; \mathbf{x}^*$
+
+\end{algorithmic}
+\end{algorithm}
+
+\end{document}

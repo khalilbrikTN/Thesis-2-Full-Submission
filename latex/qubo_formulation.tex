@@ -1,0 +1,105 @@
+\documentclass[12pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+
+\begin{document}
+
+% ─────────────────────────────────────────────
+\section*{QUBO Formulation}
+% ─────────────────────────────────────────────
+
+The goal is to select a subset of AP--MP pairs that maximizes spatial
+informativeness while minimizing redundancy, subject to device budgets
+on the number of deployed APs and MPs.
+
+\medskip
+
+The objective is formulated as a Quadratic Unconstrained Binary
+Optimization (QUBO) problem:
+
+\begin{equation}
+    Q(\mathbf{x},\, \alpha)
+    \;=\;
+    -\,\alpha \sum_{p} I_p\, x_p
+    \;+\;
+    (1 - \alpha) \sum_{p \neq q} R_{pq}\, x_p\, x_q
+    \label{eq:qubo}
+\end{equation}
+
+\noindent
+The first term rewards selecting \emph{informative} pairs (high variance
+of RSS across fingerprint locations). The second term penalizes selecting
+\emph{redundant} pairs (highly correlated RSS vectors). The parameter
+$\alpha$ controls the trade-off between the two objectives and is
+determined via binary search.
+
+\medskip
+
+The optimal solution is:
+\begin{equation}
+    \mathbf{x}^* \;=\; \arg\min_{\mathbf{x} \in \{0,1\}^{P}}\;
+    Q(\mathbf{x},\, \alpha)
+\end{equation}
+
+% ─────────────────────────────────────────────
+\section*{Table of Notations}
+% ─────────────────────────────────────────────
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.5}
+\begin{tabular}{>{\bfseries}l p{10cm}}
+\toprule
+Symbol & Description \\
+\midrule
+$N$
+    & Total number of candidate sensor node locations
+      (shared pool for APs and MPs). \\
+$K$
+    & Number of fingerprint locations (distinct user positions
+      in the training database). \\
+$P = N(N-1)$
+    & Total number of valid AP--MP pairs (all off-diagonal pairs). \\
+$p,\, q$
+    & Variable indices in $\{0, \ldots, P-1\}$, each mapping to a
+      unique off-diagonal pair $(i,j)$ with $i \neq j$. \\
+$\mathbf{x} \in \{0,1\}^{P}$
+    & Binary decision vector. $x_p = 1$ means the pair $(i,j)$
+      indexed by $p$ is selected; $x_p = 0$ otherwise. \\
+$\text{RSS}(k,\, i,\, j)$
+    & Received Signal Strength (dBm) measured at fingerprint
+      location $k$, with AP at node $i$ and MP at node $j$. \\
+$I_p$
+    & Importance of pair $p = (i,j)$: variance of RSS over all
+      fingerprint locations,
+      $I_p = \mathrm{Var}_{k}\bigl[\,\text{RSS}(k,i,j)\,\bigr]$. \\
+$R_{pq}$
+    & Redundancy between pairs $p$ and $q$: absolute Pearson
+      correlation between their RSS vectors across $K$ locations,
+      $R_{pq} = \bigl|\,\mathrm{corr}\bigl(\text{RSS}(\cdot,i,j),\,
+      \text{RSS}(\cdot,i',j')\bigr)\,\bigr| \in [0,\,1]$. \\
+$\alpha \in [0,\,1]$
+    & Trade-off parameter. Higher $\alpha$ favours importance
+      (more pairs selected); lower $\alpha$ penalises redundancy
+      (fewer, more complementary pairs). Found via binary search. \\
+$n$
+    & Maximum number of AP nodes that can be deployed (AP budget). \\
+$m$
+    & Maximum number of MP nodes that can be deployed (MP budget). \\
+$\alpha^*$
+    & Optimal trade-off value: the largest feasible $\alpha$ found
+      by binary search such that AP budget and MP budget are both
+      satisfied. \\
+$\mathbf{x}^*$
+    & Optimal binary solution corresponding to $\alpha^*$: the
+      feasible solution with the lowest KNN localization error
+      observed during binary search. \\
+\bottomrule
+\end{tabular}
+\caption{Summary of notation used in the QUBO formulation.}
+\end{table}
+
+\end{document}
