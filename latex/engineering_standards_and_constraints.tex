@@ -1,0 +1,245 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath, amssymb}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{parskip}
+\usepackage{titlesec}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\setlength{\headheight}{14.5pt}
+\addtolength{\topmargin}{-2.5pt}
+\usepackage{graphicx}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!60!black,
+    urlcolor=blue!60!black,
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Engineering Standards and Constraints}
+\lhead{QUBO-Based DFL Node Placement}
+\cfoot{\thepage}
+
+\titleformat{\section}{\large\bfseries}{}{0em}{}[\titlerule]
+\titleformat{\subsection}{\normalsize\bfseries}{}{0em}{}
+
+\title{
+    \textbf{Engineering Standards and Constraints} \\[0.5em]
+    \large QUBO-Based Sensor Node Placement for Device-Free Localization
+}
+\author{Mohamed Khalil Brik}
+\date{Spring 2026}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Introduction}
+
+This document identifies the engineering standards and constraints that
+govern the design, implementation, and evaluation of the QUBO-based sensor
+node placement system. It serves as a formal record of the standards followed
+and the boundaries within which the system was built, as required for the
+final thesis submission package.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Applicable Engineering Standards}
+
+\subsection{IEEE 830: Software Requirements Specification}
+
+The System Requirements and Design Specifications document follows the
+structure recommended by IEEE Std 830-1998. Requirements are written using
+consistent identifiers (FR-1 through FR-10, NFR-1 through NFR-5), are
+individually testable, and are organized by functional area. This ensures
+the requirements are complete, unambiguous, and traceable to the
+implementation.
+
+\subsection{IEEE 829: Software Test Documentation}
+
+The Verification and Validation Report follows the test documentation
+practices of IEEE Std 829-2008. Each test case includes a unique identifier,
+the requirement being verified, the input conditions, the expected outcome,
+and the actual outcome. This structure makes the testing process auditable
+and reproducible.
+
+\subsection{IEEE 1012: Software Verification and Validation}
+
+The overall V\&V approach is aligned with IEEE Std 1012-2016. Verification
+checks that each component was built correctly according to the specification.
+Validation checks that the full system produces results that are meaningful
+and consistent with the research goals. Both levels are addressed in the
+accompanying V\&V report.
+
+\subsection{IEEE 754: Floating-Point Arithmetic}
+
+All floating-point computations in the system rely on IEEE 754 double
+precision (64-bit) arithmetic, which is the default in Python's
+\texttt{numpy} and \texttt{pandas} libraries. The binary search tolerance
+$\epsilon = 0.01$ is chosen to be well above the resolution of double
+precision arithmetic, avoiding any numerical instability near the convergence
+boundary.
+
+\subsection{IEEE Publication Figure Standards}
+
+All figures generated for the thesis follow the IEEE journal figure
+guidelines. Figures use a serif font (Computer Modern), a minimum font size
+of 9~pt, a line width of at least 0.8~pt, and are saved at 300~DPI. Colors
+are chosen to remain distinguishable in both color and grayscale print.
+Figure width is set to 3.5 inches to match a single IEEE journal column.
+
+\subsection{Reproducible Research Standards}
+
+The system follows the reproducibility principles outlined by ACM and IEEE
+for computational research. All stochastic components use a fixed random
+seed (seed = 42 for single-run experiments; seeds 0 through 99 for the
+multi-run experiment). All input data and output results are stored as
+plain CSV files so that any reviewer can re-run the pipeline and obtain
+identical results.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Design Constraints}
+
+\subsection{Hardware Constraints}
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{No quantum hardware access.} The system was designed to run
+          entirely on classical hardware. The quantum annealing solver is
+          emulated using OpenJij's \texttt{SQASampler}, which simulates the
+          behavior of a D-Wave processor. The projected hardware anneal time
+          of 20~$\mu$s per read is used for TTS calculations, but no actual
+          D-Wave machine was accessed.
+    \item \textbf{No specialized GPU or FPGA.} The system runs on a standard
+          laptop CPU. All matrix operations use NumPy, which may use
+          multi-threaded BLAS internally but does not require a GPU.
+    \item \textbf{Sensor node count fixed at $N = 10$.} The environment
+          provides exactly 10 candidate nodes, yielding a finite set of
+          AP-MP pairs. The system is not required to scale beyond this
+          dataset for the thesis.
+\end{itemize}
+
+\subsection{Software Constraints}
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Python 3.8 or later.} The system uses f-strings,
+          \texttt{pathlib}, and type hints that require at least Python 3.8.
+    \item \textbf{OpenJij dependency.} The QUBO solvers depend on the OpenJij
+          library. The system does not implement its own annealing algorithm.
+          Any future change to the OpenJij API could require updates to the
+          solver scripts.
+    \item \textbf{No internet connection required at runtime.} All data is
+          stored locally. The system does not call any external APIs or
+          download any files during execution.
+\end{itemize}
+
+\subsection{Budget Constraints}
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{AP budget: $n \leq 5$.} At most 5 distinct Access Point
+          nodes may appear in the selected set of links.
+    \item \textbf{MP budget: $m \leq 5$.} At most 5 distinct Monitoring
+          Point nodes may appear in the selected set of links.
+    \item These budgets reflect realistic hardware deployment limits and
+          are enforced as hard constraints throughout the binary search.
+          Any solution that violates either budget is immediately rejected.
+\end{itemize}
+
+\subsection{Algorithmic Constraints}
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Binary search tolerance $\epsilon = 0.01$.} The search
+          terminates when the interval $[a, b]$ shrinks to less than 0.01.
+          This results in at most $\lceil \log_2(1/0.01) \rceil = 7$
+          iterations.
+    \item \textbf{QUBO formulation is unconstrained.} Budget feasibility
+          is not encoded as a penalty term inside the QUBO. This is a
+          deliberate design choice to avoid penalty weight tuning. The QUBO
+          only balances importance against redundancy through the single
+          parameter $\alpha$.
+    \item \textbf{k-NN with $k = 3$ fixed.} The localization evaluator uses
+          exactly 3 nearest neighbors. This value was chosen to balance
+          between noise sensitivity and spatial resolution and is held
+          constant across all experiments for fair comparison.
+\end{itemize}
+
+\subsection{Data Constraints}
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Fixed dataset.} The fingerprint RSS data, coordinates,
+          and precomputed importance and redundancy matrices are fixed inputs.
+          The system does not perform any data collection or augmentation.
+    \item \textbf{Train/test split is predetermined.} The split between
+          training and test fingerprints is defined in the input CSV files.
+          The system does not shuffle or re-split the data.
+    \item \textbf{Importance scores are RSS variance.} The importance of
+          each AP-MP link is defined as the variance of its RSS measurements
+          across fingerprint locations. Links with higher variance carry more
+          discriminative power for localization.
+    \item \textbf{Redundancy is measured by RSS correlation.} The redundancy
+          between two links is the Pearson correlation of their RSS vectors.
+          Selecting two highly correlated links adds little new information.
+\end{itemize}
+
+\subsection{Time Constraints}
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Single-run binary search must complete within 10 minutes}
+          on a standard laptop. In practice, SA with 100 reads and 1000
+          sweeps per iteration converges in under 2 minutes.
+    \item \textbf{The 100-trial multi-run experiment} is intended as an
+          offline batch job and has no strict time limit, though it typically
+          completes within 3 hours on the same hardware.
+\end{itemize}
+
+\subsection{Ethical and Academic Constraints}
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{No human subject data.} The RSS fingerprint dataset does
+          not contain any personally identifiable information. It consists
+          only of signal strength measurements at fixed physical locations.
+    \item \textbf{Reproducibility.} All experiments use fixed seeds so that
+          claims made in the thesis can be independently verified from the
+          submitted code and data.
+    \item \textbf{Honest reporting.} The greedy baseline is included and
+          honestly compared against the QUBO methods. No results are
+          selectively omitted.
+\end{itemize}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Summary Table}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}lp{4.5cm}p{6cm}@{}}
+\toprule
+\textbf{Standard / Constraint} & \textbf{Category} & \textbf{Impact on System} \\
+\midrule
+IEEE 830   & Documentation    & Structure of SRS/SDS document \\
+IEEE 829   & Testing          & Structure of V\&V test cases \\
+IEEE 1012  & V\&V process     & Scope of verification and validation \\
+IEEE 754   & Arithmetic       & Floating-point stability of binary search \\
+IEEE figures & Visualization  & DPI, font size, line width of all figures \\
+Reproducibility & Research    & Fixed seeds, plain CSV outputs \\
+AP budget $\leq 5$ & Hardware & Hard constraint in binary search \\
+MP budget $\leq 5$ & Hardware & Hard constraint in binary search \\
+$\epsilon = 0.01$ & Algorithmic & Binary search convergence bound \\
+$k = 3$ (k-NN) & Algorithmic  & Fixed evaluation metric \\
+No real QA hardware & Hardware & SQA emulation via OpenJij \\
+Python 3.8+ & Software        & Runtime environment \\
+No internet & Software        & Fully offline execution \\
+No human data & Ethical       & No IRB approval required \\
+\bottomrule
+\end{tabular}
+\caption{Summary of applicable standards and constraints.}
+\end{table}
+
+\end{document}

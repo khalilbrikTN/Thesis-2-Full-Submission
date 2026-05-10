@@ -1,0 +1,293 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath, amssymb}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{parskip}
+\usepackage{titlesec}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\setlength{\headheight}{14.5pt}
+\addtolength{\topmargin}{-2.5pt}
+\usepackage{graphicx}
+\usepackage{rotating}
+\usepackage{multirow}
+\usepackage{longtable}
+\usepackage{pdflscape}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!60!black,
+    urlcolor=blue!60!black,
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Traceability Matrix}
+\lhead{QUBO-Based DFL Node Placement}
+\cfoot{\thepage}
+
+\titleformat{\section}{\large\bfseries}{}{0em}{}[\titlerule]
+\titleformat{\subsection}{\normalsize\bfseries}{}{0em}{}
+
+\newcommand{\YES}{\textcolor{green!50!black}{\textbf{X}}}
+\newcommand{\req}[1]{\textbf{#1}}
+
+\title{
+    \textbf{Traceability Matrix} \\[0.5em]
+    \large QUBO-Based Sensor Node Placement for Device-Free Localization
+}
+\author{Mohamed Khalil Brik}
+\date{Spring 2026}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Introduction}
+
+This document provides the full traceability matrix for the QUBO-based
+sensor node placement system. It links every functional requirement from
+the System Requirements and Design Specifications to the implementation
+component that fulfills it and the test case in the Verification and
+Validation Report that verifies it.
+
+The matrix gives reviewers a single reference point to confirm that no
+requirement is left unimplemented or untested.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Document References}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Abbreviation} & \textbf{Document} \\
+\midrule
+SRS & System Requirements and Design Specifications \\
+ESC & Engineering Standards and Constraints \\
+VVR & Verification and Validation Report \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Requirement Descriptions}
+
+The table below summarizes each functional requirement for quick reference.
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}lp{10cm}@{}}
+\toprule
+\textbf{ID} & \textbf{Description} \\
+\midrule
+FR-1  & Load all input CSV files (RSS matrices, coordinates, pairs,
+        importance, redundancy). \\
+FR-2  & Build QUBO matrix $Q$ parameterized by $\alpha$ using importance
+        and redundancy values. \\
+FR-3  & Run binary search over $\alpha \in [0,1]$ with tolerance
+        $\epsilon = 0.01$ to find a budget-feasible selection. \\
+FR-4  & Solve the QUBO using SA (\texttt{SASampler}) and SQA
+        (\texttt{SQASampler}) with specified read and sweep counts. \\
+FR-5  & Implement a greedy baseline that selects pairs by descending
+        importance while respecting the same AP and MP budgets. \\
+FR-6  & Evaluate any selection using 3-NN localization and report the
+        mean Euclidean error in meters over the test set. \\
+FR-7  & Compute the Time-to-Solution (TTS) at $p_R = 0.99$ for SA and SQA. \\
+FR-8  & Repeat the full binary search 100 times with varying seeds and
+        report mean, standard deviation, min, and max statistics. \\
+FR-9  & Save all numerical results to \texttt{data/output/} as CSV files. \\
+FR-10 & Generate all ten publication-quality figures and save them to
+        \texttt{figures/} at 300~DPI. \\
+\bottomrule
+\end{tabular}
+\caption{Functional requirement summary.}
+\end{table}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Requirements to Implementation Traceability}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{@{}lp{8.5cm}l@{}}
+\toprule
+\textbf{Requirement} & \textbf{Implementing Component} & \textbf{File(s)} \\
+\midrule
+FR-1 &
+    CSV loading with \texttt{pd.read\_csv}; shape printed to console
+    for runtime verification. &
+    \texttt{scripts/01}, \texttt{scripts/04} \\
+
+FR-2 &
+    \texttt{build\_qubo(alpha, I, R)} function constructs the sparse
+    QUBO dictionary. &
+    \texttt{scripts/01}, \texttt{scripts/04} \\
+
+FR-3 &
+    \texttt{binary\_search()} function; \texttt{while b - a >= EPSILON}
+    loop with feasibility check. &
+    \texttt{scripts/01}, \texttt{scripts/04} \\
+
+FR-4 &
+    \texttt{oj.SASampler().sample\_qubo()} with 100 reads / 1000 sweeps;
+    \texttt{oj.SQASampler().sample\_qubo()} with 10 reads / 1000 sweeps. &
+    \texttt{scripts/01}, \texttt{scripts/04} \\
+
+FR-5 &
+    Greedy loop over importance-sorted pairs; set-based AP/MP budget check. &
+    \texttt{scripts/03}, \texttt{scripts/04} \\
+
+FR-6 &
+    \texttt{localizer()} / \texttt{knn\_error()} function; Euclidean
+    distance in RSS space; mean error over test set. &
+    \texttt{scripts/01}, \texttt{scripts/03}, \texttt{scripts/04} \\
+
+FR-7 &
+    \texttt{calculate\_tts(p\_s, tau, p\_target)} function;
+    $\tau$ from wall-clock time (SA) or 20~$\mu$s (SQA). &
+    \texttt{scripts/01}, \texttt{scripts/04} \\
+
+FR-8 &
+    Outer loop over \texttt{range(N\_RUNS)} with \texttt{seed = run};
+    \texttt{pandas} groupby statistics saved to summary CSV. &
+    \texttt{scripts/04} \\
+
+FR-9 &
+    \texttt{df.to\_csv()} calls at the end of each script save seven
+    output files. &
+    \texttt{scripts/01}, \texttt{scripts/03}, \texttt{scripts/04} \\
+
+FR-10 &
+    \texttt{matplotlib} figures with IEEE \texttt{rcParams};
+    saved via \texttt{fig.savefig()}. &
+    \texttt{scripts/02}, \texttt{scripts/05},
+    \texttt{scripts/06}, \texttt{scripts/07} \\
+\bottomrule
+\end{tabular}
+\caption{Requirements to implementation traceability.}
+\end{table}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Requirements to Test Case Traceability}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{@{}llp{7cm}@{}}
+\toprule
+\textbf{Requirement} & \textbf{Test Case(s)} & \textbf{What is Verified} \\
+\midrule
+FR-1  & TC-01 & Array shapes match expected dimensions. \\
+FR-2  & TC-02 & QUBO diagonal and off-diagonal terms at $\alpha = 0$ and $\alpha = 1$. \\
+FR-3  & TC-03, TC-04 & Search terminates within 7 iterations; all feasible solutions are within budget. \\
+FR-4  & TC-03, TC-04 & Solver is called correctly; budget check applied to its output. \\
+FR-5  & TC-08, TC-10 & Greedy is deterministic; QUBO accuracy is no worse than greedy. \\
+FR-6  & TC-05, TC-06 & Correct error for full selection; infinity for empty selection. \\
+FR-7  & TC-07 & Correct TTS at $p_s = 0$ and $p_s \geq 1$ boundary cases. \\
+FR-8  & TC-11, TC-12, TC-14 & Statistics are consistent; row count is correct; budget holds in all 100 trials. \\
+FR-9  & TC-09 & All seven output files exist and are non-empty. \\
+FR-10 & TC-13 & All figures saved at 300~DPI. \\
+\bottomrule
+\end{tabular}
+\caption{Requirements to test case traceability.}
+\end{table}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Full Traceability Matrix}
+
+The table below consolidates all three dimensions: requirements,
+implementation components, and test cases.
+
+\begin{landscape}
+\begin{table}[p]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\small
+\begin{tabular}{@{}l p{4.2cm} p{3.8cm} p{3.5cm} l@{}}
+\toprule
+\textbf{Req.} &
+\textbf{Description (short)} &
+\textbf{Implementing Script} &
+\textbf{Key Function / Component} &
+\textbf{Test Cases} \\
+\midrule
+FR-1  & Data ingestion
+      & \texttt{01}, \texttt{04}
+      & \texttt{pd.read\_csv}, shape checks
+      & TC-01 \\
+
+FR-2  & QUBO construction
+      & \texttt{01}, \texttt{04}
+      & \texttt{build\_qubo()}
+      & TC-02 \\
+
+FR-3  & Binary search
+      & \texttt{01}, \texttt{04}
+      & \texttt{binary\_search()} loop
+      & TC-03, TC-04 \\
+
+FR-4  & SA / SQA solvers
+      & \texttt{01}, \texttt{04}
+      & \texttt{SASampler}, \texttt{SQASampler}
+      & TC-03, TC-04 \\
+
+FR-5  & Greedy baseline
+      & \texttt{03}, \texttt{04}
+      & Importance-sorted greedy loop
+      & TC-08, TC-10 \\
+
+FR-6  & k-NN evaluation
+      & \texttt{01}, \texttt{03}, \texttt{04}
+      & \texttt{localizer()} / \texttt{knn\_error()}
+      & TC-05, TC-06 \\
+
+FR-7  & TTS computation
+      & \texttt{01}, \texttt{04}
+      & \texttt{calculate\_tts()}
+      & TC-07 \\
+
+FR-8  & Multi-run experiment
+      & \texttt{04}
+      & 100-run loop with seed = run
+      & TC-11, TC-12, TC-14 \\
+
+FR-9  & Result persistence
+      & \texttt{01}, \texttt{03}, \texttt{04}
+      & \texttt{df.to\_csv()} calls
+      & TC-09 \\
+
+FR-10 & Figure generation
+      & \texttt{02}, \texttt{05}, \texttt{06}, \texttt{07}
+      & \texttt{matplotlib} with IEEE rcParams
+      & TC-13 \\
+\bottomrule
+\end{tabular}
+\caption{Full requirements--implementation--test traceability matrix.}
+\end{table}
+\end{landscape}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Coverage Summary}
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Requirements coverage:} 10 of 10 functional requirements
+          are implemented (100\%).
+    \item \textbf{Test coverage:} 10 of 10 functional requirements are
+          covered by at least one test case (100\%).
+    \item \textbf{Test pass rate:} 14 of 14 test cases pass (100\%).
+    \item \textbf{NFR coverage:} All five non-functional requirements
+          (NFR-1 through NFR-5) are addressed in the Engineering Standards
+          and Constraints document and verified through code inspection.
+\end{itemize}
+
+\end{document}

@@ -1,0 +1,433 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath, amssymb}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{parskip}
+\usepackage{titlesec}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\setlength{\headheight}{14.5pt}
+\addtolength{\topmargin}{-2.5pt}
+\usepackage{graphicx}
+\usepackage{longtable}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!60!black,
+    urlcolor=blue!60!black,
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Verification and Validation Report}
+\lhead{QUBO-Based DFL Node Placement}
+\cfoot{\thepage}
+
+\titleformat{\section}{\large\bfseries}{}{0em}{}[\titlerule]
+\titleformat{\subsection}{\normalsize\bfseries}{}{0em}{}
+
+\newcommand{\pass}{\textcolor{green!50!black}{\textbf{PASS}}}
+\newcommand{\na}{\textit{N/A}}
+
+\title{
+    \textbf{Verification and Validation Report} \\[0.5em]
+    \large QUBO-Based Sensor Node Placement for Device-Free Localization
+}
+\author{Mohamed Khalil Brik}
+\date{Spring 2026}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Introduction}
+
+This report documents the verification and validation activities carried out
+for the QUBO-based sensor node placement system. It follows the practices of
+IEEE Std 829-2008 and IEEE Std 1012-2016.
+
+Verification answers the question: was each component built correctly
+according to its specification? Validation answers the question: does the
+full system produce results that are scientifically meaningful and consistent
+with the research goals?
+
+Each test case is assigned a unique identifier (TC-XX), linked to the
+corresponding functional requirement from the System Requirements and Design
+Specifications, and records the expected outcome, the actual outcome, and
+the result.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Scope}
+
+The following components are covered by this report:
+
+\begin{itemize}[leftmargin=2em]
+    \item Data ingestion and integrity checks (FR-1)
+    \item QUBO matrix construction (FR-2)
+    \item Binary search convergence and feasibility (FR-3, FR-4)
+    \item k-NN localization evaluator (FR-6)
+    \item Time-to-Solution calculation (FR-7)
+    \item Greedy baseline correctness (FR-5)
+    \item Multi-run statistical experiment (FR-8)
+    \item Output file persistence (FR-9)
+    \item Figure generation (FR-10)
+\end{itemize}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Verification Test Cases}
+
+Verification tests check that each component behaves exactly as specified.
+
+\subsection{TC-01: Data Loading and Shape Integrity}
+
+\begin{table}[h!]
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}lp{10cm}@{}}
+\toprule
+\textbf{Requirement} & FR-1 \\
+\textbf{Objective} & Confirm that all seven input CSV files load without
+    error and that the resulting arrays have the correct shapes. \\
+\textbf{Method} & Inspect the \texttt{.shape} attribute of each loaded
+    array and verify it matches the expected dimensions. \\
+\textbf{Expected} & RSS train matrix shape $(K_{\text{train}}, L)$;
+    RSS test matrix shape $(K_{\text{test}}, L)$; coordinate matrices
+    shape $(K, 2)$; importance vector length $L$; redundancy matrix
+    shape $(L, L)$; pairs table has $L$ rows. \\
+\textbf{Actual} & All shapes confirmed consistent across
+    \texttt{01\_qubo\_binary\_search\_solver.py} and
+    \texttt{04\_multirun\_experiment.py}. Diagnostic print statements
+    at the top of both scripts log shape information at runtime. \\
+\textbf{Result} & \pass \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{TC-02: QUBO Matrix Construction}
+
+\begin{table}[h!]
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}lp{10cm}@{}}
+\toprule
+\textbf{Requirement} & FR-2 \\
+\textbf{Objective} & Confirm that the QUBO matrix $Q$ is built correctly
+    for a known value of $\alpha$. \\
+\textbf{Method} & For $\alpha = 1.0$, all off-diagonal terms should be
+    zero and diagonal terms should equal $-I_p$. For $\alpha = 0.0$,
+    diagonal terms should be zero and off-diagonal terms should equal
+    $2 R_{pq}$. Inspect the \texttt{build\_qubo} function output
+    manually for both boundary cases. \\
+\textbf{Expected} & At $\alpha = 1.0$: $Q_{pp} = -I_p$, no off-diagonal
+    entries. At $\alpha = 0.0$: $Q_{pp} = 0$,
+    $Q_{pq} = 2 R_{pq}$ for $p < q$. \\
+\textbf{Actual} & Code inspection of \texttt{build\_qubo} confirms
+    the formula matches the specification. The coefficient
+    \texttt{coeff\_scale = 2.0 * (1.0 - alpha)} correctly evaluates to 0
+    when $\alpha = 1$ and to 2 when $\alpha = 0$, suppressing or enabling
+    off-diagonal entries accordingly. \\
+\textbf{Result} & \pass \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{TC-03: Binary Search Convergence}
+
+\begin{table}[h!]
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}lp{10cm}@{}}
+\toprule
+\textbf{Requirement} & FR-3 \\
+\textbf{Objective} & Confirm that the binary search terminates when the
+    interval width is less than $\epsilon = 0.01$. \\
+\textbf{Method} & Review the loop condition \texttt{while b - a >= EPSILON}
+    and confirm that the number of iterations does not exceed
+    $\lceil \log_2(1/0.01) \rceil = 7$. \\
+\textbf{Expected} & Search terminates within 7 iterations for any
+    input data. Final interval width $b - a < 0.01$. \\
+\textbf{Actual} & The binary search log (\texttt{binary\_search\_log.csv})
+    records the iteration count for each solver. Inspection confirms
+    termination within the expected number of iterations. \\
+\textbf{Result} & \pass \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{TC-04: Budget Feasibility Enforcement}
+
+\begin{table}[h!]
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}lp{10cm}@{}}
+\toprule
+\textbf{Requirement} & FR-3, FR-4 \\
+\textbf{Objective} & Confirm that every solution returned as feasible
+    satisfies $|AP| \leq 5$ and $|MP| \leq 5$. \\
+\textbf{Method} & Review the \texttt{count\_active} function and the
+    feasibility check in the binary search loop. Inspect
+    \texttt{binary\_search\_log.csv}: all rows marked
+    \texttt{feasible = True} should have \texttt{AP\_count} $\leq 5$
+    and \texttt{MP\_count} $\leq 5$. \\
+\textbf{Expected} & No feasible row in the log violates the budget. \\
+\textbf{Actual} & All rows with \texttt{feasible = True} in the saved
+    log have AP count and MP count within budget. \\
+\textbf{Result} & \pass \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{TC-05: k-NN Baseline with All Pairs}
+
+\begin{table}[h!]
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}lp{10cm}@{}}
+\toprule
+\textbf{Requirement} & FR-6 \\
+\textbf{Objective} & Confirm that the k-NN evaluator returns a finite,
+    positive error when all pairs are selected (the all-pairs baseline). \\
+\textbf{Method} & Pass a vector of all ones to the \texttt{localizer}
+    function and check that the output is a finite positive float. \\
+\textbf{Expected} & A finite mean localization error in meters greater
+    than zero. \\
+\textbf{Actual} & Script output logs \texttt{Baseline KNN error (all L
+    pairs): X.XXXX m} on every run, confirming the evaluator works
+    correctly with a full selection. \\
+\textbf{Result} & \pass \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{TC-06: k-NN Returns Infinity for Empty Selection}
+
+\begin{table}[h!]
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}lp{10cm}@{}}
+\toprule
+\textbf{Requirement} & FR-6 \\
+\textbf{Objective} & Confirm that the k-NN evaluator handles an empty
+    selection gracefully. \\
+\textbf{Method} & Code inspection of the \texttt{localizer} function. \\
+\textbf{Expected} & Returns \texttt{np.inf} when \texttt{len(selected) == 0}. \\
+\textbf{Actual} & The guard clause \texttt{if len(selected) == 0: return
+    np.inf} is present in both \texttt{01\_qubo\_binary\_search\_solver.py}
+    and \texttt{04\_multirun\_experiment.py}. \\
+\textbf{Result} & \pass \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{TC-07: TTS Edge Cases}
+
+\begin{table}[h!]
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}lp{10cm}@{}}
+\toprule
+\textbf{Requirement} & FR-7 \\
+\textbf{Objective} & Confirm that the TTS function handles the boundary
+    cases $p_s = 0$ and $p_s = 1$ correctly. \\
+\textbf{Method} & Code inspection of the \texttt{calculate\_tts} function. \\
+\textbf{Expected} & $p_s = 0$ returns \texttt{np.inf}. $p_s \geq 1$
+    returns $\tau$ (one run is always enough). \\
+\textbf{Actual} & The function contains explicit guards:
+    \texttt{if p\_s == 0: return np.inf} and
+    \texttt{if p\_s >= 1.0: return avg\_time}. \\
+\textbf{Result} & \pass \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{TC-08: Greedy Baseline Determinism}
+
+\begin{table}[h!]
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}lp{10cm}@{}}
+\toprule
+\textbf{Requirement} & FR-5 \\
+\textbf{Objective} & Confirm that the greedy baseline produces identical
+    results regardless of random seed. \\
+\textbf{Method} & The greedy algorithm uses only \texttt{sort\_values}
+    and set operations, with no random number generation. Inspect
+    the code for any stochastic elements. \\
+\textbf{Expected} & Zero stochastic elements. The same pairs are selected
+    on every execution. \\
+\textbf{Actual} & No random calls are present in
+    \texttt{03\_greedy\_baseline.py}. In the multi-run experiment, the
+    greedy result is computed once and replicated across all 100 rows. \\
+\textbf{Result} & \pass \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{TC-09: Output File Persistence}
+
+\begin{table}[h!]
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}lp{10cm}@{}}
+\toprule
+\textbf{Requirement} & FR-9 \\
+\textbf{Objective} & Confirm that all seven expected output CSV files
+    are created after running the full pipeline. \\
+\textbf{Method} & Check for the existence of all files in
+    \texttt{data/output/} after running scripts 01 through 04. \\
+\textbf{Expected} & Files \texttt{binary\_search\_log.csv},
+    \texttt{selected\_pairs\_sa.csv}, \texttt{selected\_pairs\_qa.csv},
+    \texttt{summary.csv}, \texttt{greedy\_result.csv},
+    \texttt{multirun\_results.csv}, and \texttt{multirun\_summary.csv}
+    all exist and are non-empty. \\
+\textbf{Actual} & All seven files are present in the submitted
+    \texttt{data/output/} directory. \\
+\textbf{Result} & \pass \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Validation Test Cases}
+
+Validation tests check that the system produces scientifically meaningful
+results aligned with the research goals.
+
+\subsection{TC-10: QUBO Outperforms or Matches Greedy on Accuracy}
+
+\begin{table}[h!]
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}lp{10cm}@{}}
+\toprule
+\textbf{Requirement} & FR-5, FR-6 \\
+\textbf{Objective} & Validate that the QUBO-based methods (SA and SQA)
+    achieve a mean localization error equal to or lower than the greedy
+    baseline, under the same budget constraints. \\
+\textbf{Method} & Compare the \texttt{best\_acc\_m} values from
+    \texttt{summary.csv} and \texttt{greedy\_result.csv}. \\
+\textbf{Expected} & SA and SQA errors are no worse than the greedy error
+    for the same AP and MP budgets. \\
+\textbf{Actual} & Results in the submitted \texttt{summary.csv} confirm
+    that both SA and SQA achieve localization accuracy equal to or
+    better than the greedy baseline. \\
+\textbf{Result} & \pass \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{TC-11: Multi-Run Statistics are Consistent}
+
+\begin{table}[h!]
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}lp{10cm}@{}}
+\toprule
+\textbf{Requirement} & FR-8 \\
+\textbf{Objective} & Validate that the multi-run summary statistics are
+    internally consistent: the mean lies between the reported minimum
+    and maximum, and the standard deviation is non-negative. \\
+\textbf{Method} & Inspect \texttt{multirun\_summary.csv} and verify
+    $\text{min} \leq \text{mean} \leq \text{max}$ and $\text{std} \geq 0$
+    for accuracy, TTS, and pair count fields. \\
+\textbf{Expected} & All statistics satisfy the above inequalities. \\
+\textbf{Actual} & Confirmed by inspection of the submitted
+    \texttt{multirun\_summary.csv}. \\
+\textbf{Result} & \pass \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{TC-12: Greedy Row Count in Multi-Run File}
+
+\begin{table}[h!]
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}lp{10cm}@{}}
+\toprule
+\textbf{Requirement} & FR-8 \\
+\textbf{Objective} & Confirm that the multi-run results file contains
+    exactly $3 \times 100 = 300$ rows (SA, SQA, Greedy for each of
+    100 runs). \\
+\textbf{Method} & Count the rows in \texttt{multirun\_results.csv}
+    (excluding the header). \\
+\textbf{Expected} & Exactly 300 data rows. \\
+\textbf{Actual} & The file contains 300 data rows as confirmed
+    by loading the file and checking \texttt{len(df)}. \\
+\textbf{Result} & \pass \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{TC-13: All Figures Generated at Correct Resolution}
+
+\begin{table}[h!]
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}lp{10cm}@{}}
+\toprule
+\textbf{Requirement} & FR-10 \\
+\textbf{Objective} & Confirm that all PNG figures are saved at 300~DPI
+    as required by IEEE figure standards. \\
+\textbf{Method} & Inspect the \texttt{savefig.dpi} value in the
+    \texttt{rcParams} dictionary used by all plot scripts. \\
+\textbf{Expected} & \texttt{savefig.dpi = 300} in all plot scripts. \\
+\textbf{Actual} & All plot scripts (\texttt{02} through \texttt{07})
+    set \texttt{`savefig.dpi': 300} in their \texttt{rcParams.update}
+    call. \\
+\textbf{Result} & \pass \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{TC-14: Budget is Respected in All 100 Multi-Run Trials}
+
+\begin{table}[h!]
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}lp{10cm}@{}}
+\toprule
+\textbf{Requirement} & FR-3, FR-8 \\
+\textbf{Objective} & Validate that the budget constraint is satisfied
+    in every trial of the multi-run experiment, not only in the
+    single-run case. \\
+\textbf{Method} & Check \texttt{multirun\_results.csv}: the
+    \texttt{AP\_count} and \texttt{MP\_count} columns for SA and SQA
+    rows must be $\leq 5$ in all 100 trials. \\
+\textbf{Expected} & No row with solver SA or QA has AP count or
+    MP count exceeding 5. \\
+\textbf{Actual} & Inspection of the submitted \texttt{multirun\_results.csv}
+    confirms that all SA and SQA rows satisfy the budget. \\
+\textbf{Result} & \pass \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Summary}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{ID} & \textbf{Description} & \textbf{Type} & \textbf{Result} \\
+\midrule
+TC-01 & Data loading and shape integrity       & Verification & \pass \\
+TC-02 & QUBO matrix construction               & Verification & \pass \\
+TC-03 & Binary search convergence              & Verification & \pass \\
+TC-04 & Budget feasibility enforcement         & Verification & \pass \\
+TC-05 & k-NN baseline with all pairs           & Verification & \pass \\
+TC-06 & k-NN returns infinity for empty set    & Verification & \pass \\
+TC-07 & TTS edge cases ($p_s = 0$, $p_s = 1$) & Verification & \pass \\
+TC-08 & Greedy baseline determinism            & Verification & \pass \\
+TC-09 & Output file persistence                & Verification & \pass \\
+TC-10 & QUBO accuracy vs. greedy baseline      & Validation   & \pass \\
+TC-11 & Multi-run statistics consistency       & Validation   & \pass \\
+TC-12 & Multi-run row count (300 rows)         & Validation   & \pass \\
+TC-13 & Figures at 300~DPI                     & Validation   & \pass \\
+TC-14 & Budget respected in all 100 trials     & Validation   & \pass \\
+\midrule
+\multicolumn{3}{l}{\textbf{Overall}} & \textbf{14/14 PASS} \\
+\bottomrule
+\end{tabular}
+\caption{V\&V test case summary.}
+\end{table}
+
+All 14 test cases pass. The system is considered verified and validated
+for submission.
+
+\end{document}
